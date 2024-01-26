@@ -1,4 +1,4 @@
-import data_preprocessing
+from data_preprocessing import read, hot_encode, simple_encode, two_option_questions, three_option_questions
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -6,13 +6,15 @@ from sklearn import preprocessing
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.metrics import confusion_matrix, roc_curve, auc
+import numpy as np
 
-X, y = data_preprocessing.read(filename='diabetes_prediction_dataset.csv')
 
-X = data_preprocessing.simple_encode(X, single_column=0)
-X = data_preprocessing.hot_encode(X, single_column=4)
+X, y = read(filename='diabetes_prediction_dataset.csv')
 
-x_scaler, y_scaler = StandardScaler(), StandardScaler()
+X, gender_encoder = simple_encode(X, column=0)
+X, smoking_history_encoder = hot_encode(X, column=4)
+
+x_scaler = StandardScaler()
 X = x_scaler.fit_transform(X)
 # y doesnt need scaling
 
@@ -77,3 +79,39 @@ plt.ylabel('True Positive Rate')
 plt.title('Receiver Operating Characteristic (ROC) Curve')
 plt.legend(loc='lower right')
 plt.show()
+
+
+if __name__ == '__main__':
+    print("\n\n\nNow enter the following parameters about each Subject in order to obtain single predictions:")
+    while True:
+        print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
+        gender = two_option_questions("Gender: ", "Male", "Female")
+        gender = 'Female' if gender == 'F' else 'Male'
+        age = int(input('Age: '))
+        
+        hypertension = two_option_questions('Does Subject have Hypertension? ')
+    
+        hypertension = int(hypertension == 'Y') # convert to one or zero
+        heart_disease = two_option_questions("Does Subject Have Had Heart Disease? ")
+        heart_disease = int(heart_disease == "Y")
+        smoking_history = three_option_questions("What's Subject's Smoking Status: ", "Currently a Smoker", 'Former Smoker', 'Never Smoked')
+        smoking_history = "current" if smoking_history == 'C' else \
+                ("former" if smoking_history == "f" else "never")
+        height = float(input("Subject's Height (cm): "))
+        height /= 100 # convert to meters
+        weight = float(input("Subject's weight (Kg): "))
+        BMI = weight / (height ** 2)
+    
+        HbA1c_level = float(input("Subject's HbA1c Level (average blood glucose (sugar) levels for the last two to three months):"))
+        blood_glucose_level = float(input("Subject's Blood Glucose Level: [mg/dL] "))
+        
+        x_data = np.array([[gender, age, hypertension, heart_disease, smoking_history, BMI, HbA1c_level, blood_glucose_level]])
+        
+        # encode and scale
+        x_data[:, 0] = gender_encoder.transform(
+            x_data[:, 0])
+        x_data = smoking_history_encoder.transform(x_data)
+        
+        x_data = x_scaler.transform(x_data)
+        y_predicted = model.predict(x_data);
+        print(f"This subject is: Possibly {'NOT ' if not y_predicted[0] else ''}DIABETIC.\n")

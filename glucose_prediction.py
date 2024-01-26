@@ -2,16 +2,17 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-import data_preprocessing
+from data_preprocessing import read, hot_encode, simple_encode, two_option_questions, three_option_questions
 from sklearn.preprocessing import StandardScaler
+import numpy as np
 
-X, y = data_preprocessing.read(filename='diabetes_prediction_dataset.csv', X_end=-2)
+X, y = read(filename='diabetes_prediction_dataset.csv', X_start=0, X_end=-2)
 
-X = data_preprocessing.simple_encode(X, single_column=0)
-X = data_preprocessing.hot_encode(X, single_column=4)
+X, gender_encoder = simple_encode(X, column=0)
+X, smoking_history_encoder = hot_encode(X, column=4)
 # Split the dataset; svr doesnt autoscale and not doing this will cause calculation problems
 
-x_scaler, y_scaler = StandardScaler(), StandardScaler()
+x_scaler = StandardScaler()
 X = x_scaler.fit_transform(X)
 # y doesnt need scaling
 
@@ -24,27 +25,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 # Initialize and train the model (Random Forest Regressor in this example)
 model = RandomForestRegressor(random_state=0)
-# from sklearn.linear_model import LinearRegression
-# model = LinearRegression()
-# from sklearn.model_selection import GridSearchCV
 
-# # Define the parameter grid for hyperparameter tuning
-# param_grid = {
-#     'n_estimators': [50, 100, 200],
-#     'max_depth': [None, 10, 20],
-#     'min_samples_split': [2, 5, 10],
-#     'min_samples_leaf': [1, 2, 4]
-# }
-
-
-# # Perform grid search with cross-validation
-# grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
-# grid_search.fit(X_train, y_train)
-
-# # Get the best model from grid search
-# best_model = grid_search.best_estimator_
-
-# Make predictions with the best model
 model.fit(X_train, y_train)
 
 # Make predictions
@@ -64,8 +45,47 @@ plt.ylabel("Predicted Blood Glucose Level")
 plt.title("Actual vs. Predicted Blood Glucose Level")
 plt.show()
 
-diffs = [0] * len(y_test)
+# simple error calculator
+delta = []
 i = 0
 for yt in y_test:
-    diffs[i] = yt - y_pred[i]
+    dy = dict()
+    dy['exact'] = np.abs(yt - y_pred[i])
+    dy['error'] = f"{100 * dy['exact'] / y_pred[i]: .4f} %"
+    delta.append(dy)
     i += 1
+
+
+if __name__ == '__main__':
+    print("\n\n\nNow enter the following parameters about each Subject in order to obtain single predictions:")
+    while True:
+        print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
+        gender = two_option_questions("Gender: ", "Male", "Female")
+        gender = 'Female' if gender == 'F' else 'Male'
+        age = int(input('Age: '))
+        
+        hypertension = two_option_questions('Does Subject have Hypertension? ')
+    
+        hypertension = int(hypertension == 'Y') # convert to one or zero
+        heart_disease = two_option_questions("Does Subject Have Had Heart Disease? ")
+        heart_disease = int(heart_disease == "Y")
+        smoking_history = three_option_questions("What's Subject's Smoking Status: ", "Currently a Smoker", 'Former Smoker', 'Never Smoked')
+        smoking_history = "current" if smoking_history == 'C' else \
+                ("former" if smoking_history == "f" else "never")
+        height = float(input("Subject's Height (cm): "))
+        height /= 100 # convert to meters
+        weight = float(input("Subject's weight (Kg): "))
+        BMI = weight / (height ** 2)
+    
+        HbA1c_level = float(input("Subject's HbA1c Level (average blood glucose (sugar) levels for the last two to three months):"))
+
+        x_data = np.array([[gender, age, hypertension, heart_disease, smoking_history, BMI, HbA1c_level]])
+        
+        # encode and scale
+        x_data[:, 0] = gender_encoder.transform(
+            x_data[:, 0])
+        x_data = smoking_history_encoder.transform(x_data)
+        
+        x_data = x_scaler.transform(x_data)
+        y_predicted = model.predict(x_data);
+        print(f"This subject's Blood Glucose Level is: Possibly {y_predicted[0]} mg/dL.\n")

@@ -16,74 +16,25 @@ def read(filename: str='diabetes_prediction_dataset.csv', X_start: int=0, X_end:
     return X, Y
 
 
-def is_vector(x):
-    return len(x.shape) == 1
-    # return isinstance(x, (list, tuple, np.ndarray))
-    # return hasattr(x, "__len__") and not np.isscalar(x[0])
-
-
-def is_nan(x):
-    for el in x:
-        # if str(el).isnumeric() or np.isscalar(el):
-        try:
-            float(el)
-            return False
-        except:
-            pass
-    return True
-
-
 # SIMPLE ENCODING
 # this method uses a simple encoding method, that assigna specific number
 # to each non numeric value, such as 0 => Germany, 1 => Spain, ...
-def simple_encode(matrix, single_column=None):
+def simple_encode(matrix, column):
     lblen = LabelEncoder()
-    if single_column is not None:
-        matrix[:, single_column] = lblen.fit_transform(
-            matrix[:, single_column])
-        return matrix
 
-    if not is_vector(matrix):
-        cols = len(matrix[0, :])
-        for i in range(cols):
-            if is_nan(matrix[:, i]):
-                matrix[:, i] = lblen.fit_transform(matrix[:, i])
-    else:
-        if is_nan(matrix):
-            matrix[:] = lblen.fit_transform(matrix[:])
-    return matrix
+    matrix[:, column] = lblen.fit_transform(
+        matrix[:, column])
+
+    return matrix, lblen
 
 
 # HOT ENCODING
 # encode the columns that contain non-numeric values such as X[:, 0] and Y[:]
-def hot_encode(matrix, single_column=None):
-
-    def hot_encode_single(matrix, column):
-        column_trans = ColumnTransformer(
-            [("Whatever", OneHotEncoder(), [column])], remainder="passthrough")
-        matrix = column_trans.fit_transform(matrix)
-        return matrix
-
-    if single_column is not None:
-        #lblhoten = OneHotEncoder(categories_features=[single_column])
-        #matrix = lblhoten.fit_transform(matrix).toarray()
-        return hot_encode_single(matrix, single_column)
-
-    if not is_vector(matrix):
-        cols = len(matrix[0])
-        i = 0
-        while i < cols:
-            if is_nan(matrix[:, i]):
-                previous_length = len(matrix[0])
-                matrix = hot_encode_single(matrix, i)
-                cols = len(matrix[0])
-                i += cols - previous_length
-            i += 1
-
-    else:
-        if is_nan(matrix):
-            matrix = hot_encode_single(matrix, 0)
-    return matrix
+def hot_encode(matrix, column):
+    column_trans = ColumnTransformer(
+        [("Whatever", OneHotEncoder(), [column])], remainder="passthrough")
+    matrix = column_trans.fit_transform(matrix)
+    return matrix, column_trans
 
 
 def add_ones(matrix):
@@ -105,3 +56,28 @@ def backward_eliminatation(X, y, SIGFICANT_LEVEL: float = 0.05):
         # if P > SL => remove predictor
         X_optimized = np.delete(X_optimized, maxp_index, axis=1)
     return X_optimized
+
+
+
+# ---- not preprocessor ----
+# simple input handlers
+# this functions force the user to only input one of two/three valid inputs
+def two_option_questions(question, first_answer='Yes', second_answer='No'):
+    answer = None
+    first_answer_key = first_answer[0].upper()
+    second_answer_key = second_answer[0].upper()
+    while answer != first_answer_key and answer != second_answer_key:
+        answer = input(f'{question} [{first_answer_key}]{first_answer[1:]}, [{second_answer_key}]{second_answer[1:]} ')
+        answer = answer.upper()
+    return answer
+        
+def three_option_questions(question, a, b, c):
+    answer = None
+    a_k = a[0].upper()
+    b_k = b[0].upper()
+    c_k = c[0].upper()
+    
+    while answer != a_k and answer != b_k and answer != c_k:
+        answer = input(f'{question} [{a_k}]{a[1:]}, [{b_k}]{b[1:]}, [{c_k}]{c[1:]} ')
+        answer = answer.upper()
+    return answer
